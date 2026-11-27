@@ -17,11 +17,11 @@ Módulo que:
 ```mermaid
 flowchart LR
     subgraph MEMS["Etapa MEM (memory.v)"]
-        DM[("dataMemory.v<br/>128 palabras (32 alcanzables)<br/>lectura combinacional ·<br/>escritura en el flanco")]
+        DM[("dataMemory.v<br/>128 palabras<br/>lectura combinacional ·<br/>escritura en el flanco")]
         LATCH[["Latch MEM/WB"]]
     end
 
-    EXMEM["Latch EX/MEM<br/>(en IExecute.v)"] -->|"aluResult[6:0]<br/>dirección en bytes"| DM
+    EXMEM["Latch EX/MEM<br/>(en IExecute.v)"] -->|"aluResult[8:0]<br/>dirección en bytes"| DM
     EXMEM -->|"datoLeido2<br/>dato del store"| DM
     EXMEM -->|"memRead · memWrite ·<br/>mem_size · mem_unsigned"| DM
 
@@ -60,10 +60,10 @@ flowchart LR
 
 - **La lectura es combinacional** (desde el latch EX/MEM) y el resultado se registra en MEM/WB; **la escritura** ocurre en el flanco de clock.
 
-- **Solo hay 32 palabras accesibles.** `dataMemory` declara 128 palabras (`RAM_DEPTH = 128`), pero `memory.v` le pasa los 7 bits bajos de la dirección en bytes (`i_aluResult[6:0]`) y la memoria indexa la palabra con `[6:2]`: **son 128 bytes = 32 palabras**. 
-  - Una dirección ≥ 128 se enrosca módulo 128 (por ejemplo, un store al byte 128 pisa la palabra 0).
-  - Las palabras 32 a 127 existen pero ningún programa puede alcanzarlas.
-  - El volcado por UART, en cambio, sí las envía (recorre las 128 palabras con un índice de palabra directo), así que en el volcado aparecen 96 palabras que el programa nunca puede modificar.
+- **Las 128 palabras son accesibles.** `dataMemory` declara 128 palabras (`RAM_DEPTH = 128`) y `memory.v` le pasa los 9 bits bajos de la dirección en bytes (`i_aluResult[8:0]`, o sea `[$clog2(RAM_DEPTH)+1:0]`). La memoria indexa la palabra con `[8:2]` (`w_word_addr`): **son 512 bytes = 128 palabras**, bytes 0 a 511.
+  - Una dirección ≥ 512 se enrosca módulo 512 (por ejemplo, un store al byte 512 pisa la palabra 0).
+  - El volcado por UART recorre las mismas 128 palabras, así que todo lo que aparece en el volcado lo puede modificar el programa.
+  - `memory/memData.mem` inicializa solo las primeras 32 palabras. En simulación el resto arranca en `x`.
 
 - Los valores iniciales se cargan con `$readmemb` desde `memory/memData.mem` (ruta relativa en `FILE_DATA`. El **reset no los restaura**: después de un reset **la memoria conserva lo que dejó la corrida anterior**.
 

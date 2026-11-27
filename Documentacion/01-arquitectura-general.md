@@ -80,9 +80,11 @@ Los registros de pipeline condicionan la escritura con:
 (i_exec_mode == 1'b0 || (i_exec_mode && i_step))
 ```
 
-`i_exec_mode = 0` es modo **continuo** (siempre habilitado) y `i_exec_mode = 1` es **paso a paso** (solo avanza con el pulso `i_step`).
+`i_exec_mode = 0` es modo **continuo** (siempre habilitado)
 
-📝 _(los `always @(posedge i_clk)` de cada etapa)_
+`i_exec_mode = 1` es **paso a paso** (solo avanza con el pulso `i_step`).
+
+- 📝 *los `always @(posedge i_clk)` de cada etapa*
 
 Esto es lo que le permite al `debug_manager` congelar el pipeline entero instrucción por instrucción cuando se debuggea por UART.
 
@@ -99,27 +101,36 @@ Esto es lo que le permite al `debug_manager` congelar el pipeline entero instruc
 
 
 ## 💡 Decisiones de diseño.
-### Dónde se resuelven los saltos.
+### ➯ Dónde se resuelven los saltos.
 
 A diferencia del diseño "de libro" de Patterson & Hennessy, donde los branches se resuelven en EX o MEM, acá **se resuelven en ID** (`ID/hazard_detector.v`).
- Los operandos se comparan después de pasar por un mini-forwarding propio de esa unidad.
+
+Los operandos se comparan después de pasar por un mini-forwarding propio de esa unidad.
 
 **Ventaja:** cuando se toma un salto, solo se descarta la instrucción que IF estaba leyendo.
 
 La penalidad es de **una burbuja**, en lugar de dos o tres si se resolviera más adelante.
 
-**Costo:**
+### *Costo:*
 
-- **Frecuencia.** En un mismo ciclo hay que decodificar la instrucción, elegir los operandos con el forwarding local, compararlos (32 bits) y, con el `flush` resultante, volver a IF para anular la instrucción leída y elegir el próximo PC. Ese es justamente el **camino crítico** del diseño: va de la instrucción en ID al registro del próximo PC (ver `09-clock.md`). El destino del salto, en cambio, se registra en ID/EX y se aplica un ciclo después, así que no forma parte de ese camino.
-- **Visibilidad y stalls.** `hazard_detector.v` necesita ver EX, MEM y WB a la vez, y hay *stalls* adicionales cuando un branch depende de un valor que todavía no está disponible.
+**1) Frecuencia:** 
+- En un mismo ciclo hay que decodificar la instrucción, elegir los operandos con el forwarding local, compararlos (32 bits) y, con el `flush` resultante, volver a IF para anular la instrucción leída y elegir el próximo PC. 
+- Ese es justamente el **camino crítico** del diseño → va de la instrucción en ID al registro del próximo PC (ver `09-clock.md`).
+- El destino del salto, en cambio, se registra en ID/EX y se aplica un ciclo después, así que no forma parte de ese camino.
 
 📝 Se priorizó la menor penalidad por salto. El costo en frecuencia **es aceptable** → aun con este camino, el diseño soporta ~78 MHz, por encima de los 50 MHz actuales.
 
-### Memoria de instrucciones direccionada por palabra
+
+**2) Visibilidad y stalls:**
+- `hazard_detector.v` necesita ver EX, MEM y WB a la vez, y hay *stalls* adicionales cuando un branch depende de un valor que todavía no está disponible.
+
+---
+### ➯ Memoria de instrucciones direccionada por palabra
 
 El PC no incrementa de a 4 bytes como en RISC-V real: incrementa de a **1**, porque la memoria de instrucciones tiene 32 entradas direccionadas por índice (5 bits), no por byte.
 
 > *Ver `08-mips-vs-riscv.md` para más contexto de por qué el diseño se aparta acá del RISC-V estándar.*
 
-### Instruccion Jal y Jalr
-Para evitar crear nuevos bit tanto para el control como para los **forwarding** se opto por incluir una nueva entrada, el **PC**, en los registros del **dato b** para la **ALU**, y que este tipo de instrucciones, junto con el **LUI**, pasen el dato sin modificación, asi poder reutilizar los mecanismos ya implementados.
+---
+### ➯ Instruccion Jal y Jalr
+Para evitar crear nuevos bit tanto para el control como para los **forwarding** se opto por incluir una nueva entrada: el **PC** en los registros del **dato b** para la **ALU**, y que este tipo de instrucciones, junto con el **LUI**, pasen el dato sin modificación, y asi poder reutilizar los mecanismos ya implementados.

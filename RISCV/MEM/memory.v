@@ -54,7 +54,7 @@ module memory #(
         .RAM_DEPTH(RAM_DEPTH)
     )u_dataMemory (
       .i_clk(i_clk),
-      .i_address(i_aluResult[$clog2(RAM_DEPTH)-1:0]),
+      .i_address(i_aluResult[$clog2(RAM_DEPTH)+1:0]),
       .i_write_data(i_datoLeido2),
       .i_read_enable(i_memRead),
       .i_write_enable(i_memWrite),

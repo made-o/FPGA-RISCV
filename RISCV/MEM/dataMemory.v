@@ -10,7 +10,7 @@ module dataMemory #(
    input  i_read_enable, //memRead
    input  i_write_enable, //memWrite
    
-   input  [$clog2(RAM_DEPTH)-1:0] i_address, // address bus
+   input  [$clog2(RAM_DEPTH)+1:0] i_address, // address bus (en bytes)
    input  [RAM_WIDTH-1:0] i_write_data, // datos de entrada a la RAM
    
    input  [$clog2(RAM_DEPTH)-1:0] i_addr_tx,
@@ -29,6 +29,10 @@ module dataMemory #(
    reg [RAM_WIDTH-1:0] data_send_tx;
    
    reg [RAM_WIDTH-1:0] r_read_data;
+
+   // Indice de palabra: bits [log2(DEPTH)+1:2] de la direccion en bytes
+   // (con RAM_DEPTH = 128 -> [8:2], 128 palabras = 512 bytes).
+   wire [$clog2(RAM_DEPTH)-1:0] w_word_addr = i_address[$clog2(RAM_DEPTH)+1:2];
    ////////////////////////////////////////////////////
    // Start-code:
    // Initialization:    initial
@@ -47,10 +51,10 @@ module dataMemory #(
             begin
                
                case(i_address[1:0])
-                  2'b00: memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]][7:0]     <= i_write_data[7:0];
-                  2'b01: memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]][15:8]    <= i_write_data[7:0];
-                  2'b10: memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]][23:16]   <= i_write_data[7:0];
-                  2'b11: memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]][31:24]   <= i_write_data[7:0];
+                  2'b00: memoryArray[w_word_addr][7:0]     <= i_write_data[7:0];
+                  2'b01: memoryArray[w_word_addr][15:8]    <= i_write_data[7:0];
+                  2'b10: memoryArray[w_word_addr][23:16]   <= i_write_data[7:0];
+                  2'b11: memoryArray[w_word_addr][31:24]   <= i_write_data[7:0];
                endcase
                
             end
@@ -58,14 +62,14 @@ module dataMemory #(
             begin
                
                if(i_address[1])
-                  memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]][31:16] <= i_write_data[15:0];
+                  memoryArray[w_word_addr][31:16] <= i_write_data[15:0];
                else
-                  memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]][15:0] <= i_write_data[15:0];
+                  memoryArray[w_word_addr][15:0] <= i_write_data[15:0];
                
             end
             2'b10: // SW
             begin
-               memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]] <= i_write_data;
+               memoryArray[w_word_addr] <= i_write_data;
             end
          endcase
       end
@@ -84,7 +88,7 @@ module dataMemory #(
    always @(*) begin: lectura
       reg [31:0] full_word;
       r_read_data = 32'h0;
-      full_word = memoryArray[i_address[$clog2(RAM_DEPTH)-1:2]];
+      full_word = memoryArray[w_word_addr];
       case(i_mem_size)
          2'b00: // LB o LBU
          begin
